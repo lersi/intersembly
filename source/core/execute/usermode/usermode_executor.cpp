@@ -46,7 +46,7 @@ convert_page_size_into_flag(
 address_t
 IUsermodeExecutor::allocate_page(
 	IN address_t page_address,
-    IN page_size_e size_of_page = page_size_e::PAGE_4KB
+    IN page_size_e size_of_page
 ){
     address_t result = NULL_ADDRESS;
     void * mmap_result = MAP_FAILED;
@@ -79,7 +79,7 @@ IUsermodeExecutor::allocate_page(
 }
 
 void
-free_page(
+IUsermodeExecutor::free_page(
     IN address_t page_address,
     IN uint64_t size
 ){

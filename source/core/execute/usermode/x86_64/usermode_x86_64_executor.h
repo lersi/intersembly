@@ -11,20 +11,19 @@ namespace execute
     class X86_64_Executor : public IUsermodeExecutor
     {
         private:
-            static constexpr uint64_t __environment_remove_from_rip = 10;
-            static constexpr uint64_t __environment_stack_address_offset = 12;
-            static constexpr uint64_t __environment_return_address_offset = 22;
+            static constexpr uint64_t __environment_remove_from_rip = 26;
+            static constexpr uint64_t __environment_stack_address_offset = 6;
+            static constexpr uint64_t __environment_return_address_offset = 16;
             static constexpr uint8_t __environment_exit_instructions[] = {
                 0x50, /* push rax */
                 0x53, /* push rbx */
                 0x51, /* push rcx */
                 0x52, /* push rdx */
-                0xe8, 0x00, 0x00, 0x00, 0x00, /* call relative 0 (save rip onto stack) */
                 0x48, 0xB8, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, /* mov rax, stack_address
                 (the address will be overriden, rax now stores the address of the stack t return to) */
                 0x48, 0xBB, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, /* mov rbx, address_to_jump_back 
                 (the address will be overriden, rbx now stores the address to jump back to) */
-                0xFF, 0xE3, /* call rbx (jumps back to code that will do the rest of the context switch) */
+                0xFF, 0xD3, /* call rbx (jumps back to code that will do the rest of the context switch) */
             };
             static constexpr uint64_t __environment_exit_instructions_size = sizeof(__environment_exit_instructions);
             static constexpr uint64_t INITIAL_PAGES_HOLDERS_COUNT = 10;
@@ -49,10 +48,25 @@ namespace execute
              * @brief will contain the off set of our inserted code, relative to the start address of the enviroment code
              */
             uint64_t m_inserted_code_offset;
-            common_registers_bit_mask_t m_changed_opcodes;
+            common_registers_bit_mask_t m_changed_registers;
         protected:
+        /**
+         * @brief executes the code
+         */
         void
         start_operation(void);
+        /**
+         * @brief allocates more pages for an existing block of memory
+         * 
+         * @param[in,out] current_block_of_memory the block of memory to extend, the size value will be changed
+         * @param[in] desired_size the new size for the block
+         */
+        static
+        void
+        allocate_room_for(
+            array_t & current_block_of_memory,
+            const uint64_t desired_size
+        );
 
         public:
         X86_64_Executor(void);
@@ -96,9 +110,9 @@ namespace execute
         virtual
         bool
         get_common_registers(
-            IN const common_registers_bit_mask_t & registers_to_read,
+            IN const common_registers_bit_mask_t registers_to_read,
             OUT common_registers_t & registers
-        ) noexcept override;
+        ) const noexcept override;
 
         /**
          * @brief writes the common reginsters state in the enviroment
@@ -108,9 +122,9 @@ namespace execute
          */
         virtual
         bool
-        set_common_reginsters(
-            IN const common_registers_bit_mask_t & registers_to_write,
-            IN const common_registers_t & registers
+        set_common_registers(
+                IN common_registers_bit_mask_t registers_to_write,
+                IN const common_registers_t & registers
         ) noexcept override;
 
         /**
@@ -122,7 +136,7 @@ namespace execute
         bool
         get_stack(
             OUT readonly_array_t & stack
-        ) noexcept override;
+        ) const noexcept override;
 
         /**
          * @brief Get the start address of the code enviroment
@@ -133,7 +147,7 @@ namespace execute
         bool
         get_code_start_address(
             OUT address_t & start_address
-        ) noexcept override;
+        ) const noexcept override;
 
         /**
          * @brief loads chunk of data to the enviroment of the executor.

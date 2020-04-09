@@ -1,9 +1,8 @@
 #include "usermode_x86_64_executor.h" 
 
-extern "c" void operation_end_handler(void);
+extern "C" void operation_end_handler(void);
 
-asm volatile (
-".64\n"
+asm (
 ".intel_syntax\n"
 /* this code restores the executed code to our own code */
 /* assumng the following:
@@ -14,6 +13,8 @@ asm volatile (
 	in the restored stack the first value to pop is the pointer to the register struct,
 	and the second value is the address to return to
 */
+".global operation_end_handler\n"
+/*".type operation_end_handler, @function\n"*/
 "operation_end_handler:\n"
 /* ==================================================================== */
 /* switch stacks */
@@ -169,21 +170,21 @@ asm volatile (
 "	rol rcx\n"
 /* change the offset for the next register */
 "	sub r8, 8\n"
-"	jno $save_loop\n"
+"	jno save_loop\n"
 /* when the loop ends, nthe stack pointer points into its otiginal position */
 "	mov rdx, [rbx + 8 * 7]\n"
 "	mov [rbx + 8 * 7], rsp\n"
 "	cmp rdx, rsp\n"
-"	je $end\n"
+"	je end\n"
 /* set the specific bit of rsp, if has changes */
-"	or rcx, 0b1000 0000\n"
+"	or rcx, 0b10000000\n"
 "end:\n"
 /* =========================================== */
 /* stack switch */
 "	mov rsp, rsi\n"
 /* =========================================== */
 /* mov to rax the bit mask of the changed registers */
-"	mov rax, rcx"
+"	mov rax, rcx\n"
 /* return to normal code */
 "	ret"
 );
@@ -191,11 +192,42 @@ asm volatile (
 using namespace execute;
 
 X86_64_Executor::X86_64_Executor(void) :
-m_environment_pages(INITIAL_PAGES_HOLDERS_COUNT)
+m_environment_pages(INITIAL_PAGES_HOLDERS_COUNT),
+m_inserted_code_offset(0),
+m_changed_registers({0})
 {
-	m_environment_registers = { 0 };
+	(void)memset(
+		&m_environment_registers,
+		static_cast<int>(sizeof(uint8_t)),
+		static_cast<int>(sizeof(m_environment_registers) / sizeof (uint8_t))
+	);
 	m_environment_code = {0};
 	m_environment_stack = {0};
+}
+
+X86_64_Executor::~X86_64_Executor()
+{
+    try{
+        IUsermodeExecutor::free_page(
+                reinterpret_cast<address_t>(m_environment_code.array),
+                m_environment_code.size
+        );
+        IUsermodeExecutor::free_page(
+                reinterpret_cast<address_t>(m_environment_stack.array),
+                m_environment_stack.size
+        );
+
+        for (array_t range : m_environment_pages)
+        {
+            IUsermodeExecutor::free_page(
+                    reinterpret_cast<address_t>(range.array),
+                    range.size
+            );
+        }
+    }
+    catch (std::exception) {
+        /* do nothing, we did our best effort */
+    }
 }
 
 void
@@ -215,8 +247,6 @@ X86_64_Executor::init(void)
 		)
 	);
 	m_environment_stack.size = PAGE_2MB_SIZE;
-
-
 }
 
 void
@@ -233,7 +263,6 @@ X86_64_Executor::start_operation(void)
 	*save_code_address_to = code_resume_address;
 
 	asm volatile (
-		".64\n"
 		".intel_syntax\n"
 		/* save most registers to the stack */
 		"push rax\n"
@@ -253,19 +282,23 @@ X86_64_Executor::start_operation(void)
 		"push r15\n"
 		"pushf\n"
 		/* load to rax the address that we want to return to */
-		"lea rax, $after_execution\n"
+		"call after_execution\n" /* again a weard work around because compiler/assembler bugs */
+		"pop rax\n"
 		/* push that address onto stack */
 		"push rax\n"
 		/* load the environment register struct to rbx */
-		"mov rbx, %1\n"
+		// "mov rbx, %1\n"
 		/* push that address onto stack */
-		"push rbx\n"
+		".att_syntax\n" /* the is a bug in the implementation of input / output macros, so it do not work with intel syntax */
+		"push %1\n"
+
 
 		/* load pointer to the address to store rsp */
-		"mov rax, %2\n"
+		// "mov rax, %2\n"
 		/* save rsp there */
 		/* write the stack address to where it should be saved */
-		"mov [rax], rsp\n"
+		"movq %%rsp, (%2)\n"
+		".intel_syntax\n"
 
 		/* the pointer to the struct is in rbx */		
 		/* load most of the registers */
@@ -306,7 +339,9 @@ X86_64_Executor::start_operation(void)
 /* here assuming that the code has run, and all the registers of that code has been saved.
 	also assuming that the first values to pop from the stack are the registers that we have saved */
 "after_execution:\n"
-	"	"
+	"	pop rax\n"
+	"	call rax\n"
+
 	"	popf\n"
 	"	pop r15\n"
 	"	pop r14\n"
@@ -323,20 +358,276 @@ X86_64_Executor::start_operation(void)
 	"	pop rcx\n"
 	"	pop rbx\n"
 
-	"	mov %0, rax\n"
+	/* store changed registers bitmask at result */
+	".att_syntax\n"
+	"	movq %%rax, %0\n"
+	".intel_syntax\n"
 
 	"	pop rax\n"
-	
-		: "0"(m_changed_opcodes)
-		: "1"(&m_environment_registers)/* the address of the register struct */,
-			"2"(save_stack_address_to) /* the address of the place to save stack's value to */
+
+		: "=b"(m_changed_registers)
+		: "b"(&m_environment_registers)/* the address of the register struct */,
+			"c"(save_stack_address_to) /* the address of the place to save stack's value to */
 		: "rax"
 	);
+	m_environment_registers.rip -= __environment_remove_from_rip;
 	/* the end */
 	return;
 }
 
+void
+X86_64_Executor::allocate_room_for(
+	array_t & current_block_of_memory,
+	const uint64_t desired_size
+){
+	address_t allocate_at = reinterpret_cast<address_t>(
+		current_block_of_memory.array + current_block_of_memory.size
+	);
+	uint64_t size_to_allocate = desired_size - current_block_of_memory.size;
+	address_t allocated_address = NULL_ADDRESS;
+	uint64_t current_size_to_allocate = 0;
+	page_size_e current_size_to_allocate_enum;
 
-
+	/* align the allocation size */
+	if (0 != size_to_allocate % PAGE_4KB_SIZE) {
+		size_to_allocate += PAGE_4KB_SIZE - 
+			(size_to_allocate % PAGE_4KB_SIZE);
+	}
 	
 
+	while (size_to_allocate > 0)
+	{
+		if(0 == (allocate_at % PAGE_1GB_SIZE) && size_to_allocate >= PAGE_1GB_SIZE)
+		{
+			current_size_to_allocate = PAGE_1GB_SIZE;
+			current_size_to_allocate_enum = page_size_e::PAGE_1GB;
+		}
+		else if (0 == (allocate_at % PAGE_2MB_SIZE) && size_to_allocate >= PAGE_2MB_SIZE)
+		{
+			current_size_to_allocate = PAGE_2MB_SIZE;
+			current_size_to_allocate_enum = page_size_e::PAGE_2MB;
+		}
+		else
+		{
+			current_size_to_allocate = PAGE_4KB_SIZE;
+			current_size_to_allocate_enum = page_size_e::PAGE_4KB;
+		}
+		
+		
+		allocated_address = IUsermodeExecutor::allocate_page(
+			allocate_at, 
+			current_size_to_allocate_enum
+		);
+		if (allocate_at == NULL_ADDRESS){
+			allocate_at = allocated_address;
+			current_block_of_memory.array = reinterpret_cast<uint8_t *>(allocated_address);
+		}
+		else if ( allocated_address != allocate_at)
+		{
+			IUsermodeExecutor::free_page(allocated_address, current_size_to_allocate);
+			/** @todo throw proper exception or change the allocation function */
+			throw std::exception();
+		}
+
+		current_block_of_memory.size += current_size_to_allocate;
+		size_to_allocate -= current_size_to_allocate;
+		allocate_at += current_size_to_allocate;
+	}
+	
+}
+
+bool
+X86_64_Executor::prepare_execute(
+	IN const array_t & opcodes_to_execute
+) noexcept{
+	bool result = false;
+	uint64_t total_code_size = opcodes_to_execute.size + __environment_exit_instructions_size;
+
+	if (0 == opcodes_to_execute.size) {
+		/** @todo fill error */
+		goto cleanup;
+	}
+
+	try
+	{
+		if (total_code_size > m_environment_code.size)
+		{
+			allocate_room_for(m_environment_code, total_code_size);
+		}
+
+		(void)memcpy(
+			m_environment_code.array, 
+			opcodes_to_execute.array, 
+			opcodes_to_execute.size
+		);
+		m_inserted_code_offset = opcodes_to_execute.size;
+		(void)memcpy(
+			m_environment_code.array + opcodes_to_execute.size,
+			__environment_exit_instructions,
+			__environment_exit_instructions_size
+		);
+
+		m_environment_registers.rip = reinterpret_cast<address_t>(m_environment_code.array);
+	}
+	catch(std::exception e)
+	{
+		result = false;
+		/** @todo fill error code */
+		goto cleanup;
+	}	
+
+	result = true;
+cleanup:
+	return result;
+}
+
+bool
+X86_64_Executor::execute(
+	OUT common_registers_bit_mask_t & modified_registers
+) noexcept{
+	bool result = false;
+	if (
+        m_environment_registers.rip >= reinterpret_cast<address_t>(m_environment_code.array + m_environment_code.size)
+        || m_environment_registers.rip < reinterpret_cast<address_t >(m_environment_code.array)
+    ){
+		/** @todo fill error */
+		goto cleanup;
+	}
+	if (
+        m_environment_registers.rsp >= reinterpret_cast<address_t>(m_environment_stack.array + m_environment_stack.size)
+        || m_environment_registers.rsp < reinterpret_cast<address_t >(m_environment_stack.array)
+    ){
+		/** @todo fill error */
+		goto cleanup;
+	}
+
+	this->start_operation();
+	modified_registers = m_changed_registers;
+
+	result = true;
+cleanup:
+	return result;
+}
+
+bool
+X86_64_Executor::get_common_registers(
+	IN common_registers_bit_mask_t registers_to_read,
+	OUT common_registers_t & registers
+) const noexcept{
+	bool result = false;
+	uint64_t index = 0;
+
+	/* check for array access out of range */
+	if (registers_to_read.value >= 1 << (COMMON_REGISTERS_LENGTH + 1))
+	{
+		/** @todo fill error */
+		goto cleanup;
+	}
+
+	while (registers_to_read.value != 0)
+	{
+		if (1 & registers_to_read.value)
+		{
+			registers.array[index] = m_environment_registers.array[index];
+		}
+		index++;
+		registers_to_read.value >>= 1;
+	}
+
+	result = true;
+cleanup:
+	return result;
+}
+	
+
+bool
+X86_64_Executor::set_common_registers(
+	IN common_registers_bit_mask_t registers_to_write,
+	IN const common_registers_t & registers
+) noexcept{
+	bool result = false;
+	uint64_t index = 0;
+
+	/* check for array access out of range */
+	if (registers_to_write.value >= 1 << (COMMON_REGISTERS_LENGTH + 1))
+	{
+		/** @todo fill error */
+		goto cleanup;
+	}
+
+	while (registers_to_write.value != 0)
+	{
+		if (1 & registers_to_write.value)
+		{
+			m_environment_registers.array[index] = registers.array[index];
+		}
+		index++;
+		registers_to_write.value >>= 1;
+	}
+
+	result = true;
+cleanup:
+	return result;
+}
+
+bool
+X86_64_Executor::get_stack(
+	OUT readonly_array_t & stack
+) const noexcept{
+	bool result = false;
+	stack.str = m_environment_stack.array;
+	stack.size = m_environment_stack.size;
+	result = true;
+	return result;
+}
+
+
+bool
+X86_64_Executor::get_code_start_address(
+	OUT address_t & start_address
+) const noexcept{
+	bool result = false;
+
+	start_address = reinterpret_cast<address_t>(
+		m_environment_code.array
+	);
+
+	result = true;
+	return result;
+}
+
+bool
+X86_64_Executor::load_static_module_to_memory(
+	IN const array_t module_data,
+	OUT address_t & load_address
+) noexcept{
+	bool result = false;
+	array_t allocation_space = {.array= nullptr, .size= 0};
+
+	try
+	{
+		X86_64_Executor::allocate_room_for(allocation_space, module_data.size);
+		(void)memcpy(
+			allocation_space.array,
+			module_data.array,
+			module_data.size
+		);
+		load_address = reinterpret_cast<address_t>(allocation_space.array);
+		m_environment_pages.push_back(allocation_space);
+	}
+	catch(std::exception e){
+		if (allocation_space.size != 0)
+		{
+			IUsermodeExecutor::free_page(
+                    reinterpret_cast<address_t>(allocation_space.array),
+                    allocation_space.size
+            );
+		}
+		/** @todo fill error */
+		goto cleanup;
+	}
+
+	result = true;
+cleanup:
+	return result;
+}

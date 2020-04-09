@@ -7,7 +7,7 @@
 
 namespace execute{
 
-    constexpr address_t NULL_ADDRESS = reinterpret_cast<address_t>(nullptr);
+    #define NULL_ADDRESS reinterpret_cast<address_t>(nullptr)
 
     constexpr uint64_t PAGE_4KB_SIZE = 0x1000;
     constexpr uint64_t PAGE_2MB_SIZE = 512 * PAGE_4KB_SIZE;

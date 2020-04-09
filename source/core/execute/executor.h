@@ -9,11 +9,37 @@ typedef uint64_t address_t;
 
 namespace execute{
 
-    typedef uint64_t common_registers_bit_mask_t;
+    typedef union {
+        uint64_t value;
+        /* x86_64 registers */
+        struct {
+            bool rax : 1;
+            bool rbx : 1;
+            bool rcx : 1;
+            bool rdx : 1;
+            bool rsi : 1;
+            bool rdi : 1;
+            bool rbp : 1;
+            bool rsp : 1;
+            bool r8 : 1;
+            bool r9 : 1;
+            bool r10 : 1;
+            bool r11 : 1;
+            bool r12 : 1;
+            bool r13 : 1;
+            bool r14 : 1;
+            bool r15 : 1;
+            bool rflags : 1;
+            bool rip : 1;
+        };
+    } common_registers_bit_mask_t;
+
+    constexpr uint64_t COMMON_REGISTERS_LENGTH = 23;
 
     typedef union common_registers
     {
-        struct x86_64
+        uint64_t array[COMMON_REGISTERS_LENGTH];
+        struct
         {
             /* General-Purpose Registers */
             uint64_t rax;
@@ -39,14 +65,14 @@ namespace execute{
             uint64_t rip;
 
             /* Segment Registers */
-            uint16_t cs;
-            uint16_t ds;
-            uint16_t ss;
-            uint16_t es;
-            uint16_t fs;
-            uint16_t gs;
+            uint64_t cs;
+            uint64_t ds;
+            uint64_t ss;
+            uint64_t es;
+            uint64_t fs;
+            uint64_t gs;
         };
-        struct x86_32
+        struct
         {
             /* General-Purpose Registers */
             uint32_t eax; uint32_t rax_high;
@@ -65,18 +91,19 @@ namespace execute{
             uint32_t e13; uint32_t r13_high;
             uint32_t e14; uint32_t r14_high;
             uint32_t e15; uint32_t r15_high;
-            /* Segment Registers */
-            uint16_t cs;
-            uint16_t ds;
-            uint16_t ss;
-            uint16_t es;
-            uint16_t fs;
-            uint16_t gs;
             /* Program Status and Control Register */
             uint32_t eflags; uint32_t rflags_high;
 
             /* Instruction Pointer */
             uint32_t eip; uint32_t rip_high;
+
+            /* Segment Registers */
+/*            uint32_t cs; uint32_t cs_pad;
+            uint32_t ds; uint32_t ds_pad;
+            uint32_t ss; uint32_t ss_pad;
+            uint32_t es; uint32_t es_pad;
+            uint32_t fs; uint32_t fs_pad;
+            uint32_t gs; uint32_t gs_pad;*/
         };
         
     } common_registers_t;
@@ -121,9 +148,9 @@ namespace execute{
         virtual
         bool
         get_common_registers(
-            IN const common_registers_bit_mask_t & registers_to_read,
+            IN const common_registers_bit_mask_t registers_to_read,
             OUT common_registers_t & registers
-        ) noexcept = 0;
+        ) const noexcept = 0;
 
         /**
          * @brief writes the common reginsters state in the enviroment
@@ -133,9 +160,9 @@ namespace execute{
          */
         virtual
         bool
-        set_common_reginsters(
-            IN const common_registers_bit_mask_t & registers_to_write,
-            IN const common_registers_t & registers
+        set_common_registers(
+                IN common_registers_bit_mask_t registers_to_write,
+                IN const common_registers_t & registers
         ) noexcept = 0;
 
         /**
@@ -147,7 +174,7 @@ namespace execute{
         bool
         get_stack(
             OUT readonly_array_t & stack
-        ) noexcept = 0;
+        ) const noexcept = 0;
 
         /**
          * @brief Get the start address of the code enviroment
@@ -158,7 +185,7 @@ namespace execute{
         bool
         get_code_start_address(
             OUT address_t & start_address
-        ) noexcept = 0;
+        ) const noexcept = 0;
 
         /**
          * @brief loads chunk of data to the enviroment of the executor.

@@ -5,10 +5,33 @@
 
 #include <core/assemble/assembler.h>
 #include <core/assemble/keystone/keystone_assembler.h>
+#include <core/execute/usermode/x86_64/usermode_x86_64_executor.h>
 
 
 
 using namespace assemble;
+using namespace execute;
+
+static const char * register_table_x86_64[] ={
+        "rax",
+        "rbx",
+        "rcx",
+        "rdx",
+        "rsi",
+        "rdi",
+        "rbp",
+        "rsp",
+        "r8",
+        "r9",
+        "r10",
+        "r11",
+        "r12",
+        "r13",
+        "r14",
+        "r15",
+        "rflags",
+        "rip",
+};
 
 char 
 convert_byte_to_char(
@@ -27,12 +50,63 @@ convert_byte_to_char(
     }
 }
 
+void
+print_in_hex(
+    const array_t & array
+){
+    std::cout << "0x";
+    for (int i = 0; i < array.size; i++){
+        std::cout << convert_byte_to_char(array.array[i], true) << convert_byte_to_char(array.array[i], false);
+        if (15 == i % 16){
+            std::cout << "\n0x";
+        }
+        else if (3 == i % 4){
+            std::cout << ' ';
+        }
+    }
+
+    std::cout << std::endl;
+}
+
+void
+print_registers(
+    const IExecutor & executor,
+    common_registers_bit_mask_t registers_to_print
+){
+    common_registers_t read_registers = { .array = {0} };
+    array_t register_as_array = {0};
+    uint64_t register_index = 0;
+
+    if(!executor.get_common_registers(registers_to_print, read_registers)){
+        std::cerr << "failed to read registers" << std::endl;
+        return;
+    }
+
+    /* no bound check here, assuming that get_common_registers will fail if there is a bit aot side of range */
+    while (registers_to_print.value != 0)
+    {
+        if (1 & registers_to_print.value)
+        {
+            std::cout << register_table_x86_64[register_index] << " ";
+
+            register_as_array.array = reinterpret_cast<uint8_t *>(read_registers.array + register_index);
+            register_as_array.size = sizeof(read_registers.array[register_index]);
+
+            print_in_hex(register_as_array);
+        }
+        registers_to_print.value >>= 1;
+        register_index++;
+    }
+}
+
 int main(void){
     assembly_syntax_e syntax = assembly_syntax_e::INTEL;
     architecture_e arch = architecture_e::X86;
     KeystoneAssembler assembler;
-    string_t assembly{str: nullptr, size: 0};
-    array_t opcodes{array: nullptr, size: 0};
+    X86_64_Executor executor;
+    string_t assembly{.str= nullptr, .size= 0};
+    array_t opcodes{.array= nullptr, .size= 0};
+    common_registers_bit_mask_t changed_registers = {0};
     std::string input;
 
     if(!assembler.init(
@@ -44,10 +118,24 @@ int main(void){
         return 1;
     }
 
+    try{
+        executor.init();
+    }
+    catch (std::exception e)
+    {
+        std::cerr << "executor init error!";
+        return 1;
+    }
+
     std::ios cout_state(nullptr);
     while (true){
         std::cout << "enter assembly:" << std::endl;
         std::getline(std::cin, input);
+
+        if (0 == input.size()){
+            break;
+        }
+
         assembly.str = reinterpret_cast<const uint8_t *>(input.c_str());
         assembly.size = input.size() + 1;
 
@@ -58,22 +146,17 @@ int main(void){
         else
         {
             std::cout << "result:" << std::endl;
+            print_in_hex(opcodes);
 
-            // cout_state.copyfmt(std::cout);
-            // std::cout << std::hex << std::setfill('0') << std::setw(2);
-            for (int i = 0; i < opcodes.size; i++){
-                std::cout << convert_byte_to_char(opcodes.array[i], true) << convert_byte_to_char(opcodes.array[i], false);
-                // std::cout << std::hex << std::setfill('0') << std::setw(2) << opcodes.array[i];
-                if (15 == i % 16){
-                    std::cout << '\n';
-                }
-                else if (3 == i % 4){
-                    std::cout << ' ';
-                }
+            std::cout << "starting to execute..." << std::endl;
+            if(!executor.prepare_execute(opcodes)){
+                std::cerr << "failed to prepare execution!" << std::endl;
+            }
+            if(!executor.execute(changed_registers)){
+                std::cerr << "failed to execute!" << std::endl;
             }
 
-            std::cout << std::endl;
-            // std::cout.copyfmt(cout_state);
+            print_registers(executor, changed_registers);
         }
         
     }
