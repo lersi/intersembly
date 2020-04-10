@@ -22,7 +22,7 @@ convert_page_size_into_flag(
     {
         case page_size_e::PAGE_4KB:
             #ifdef __MACH__
-                result = VM_FLAGS_SUPERPAGE_SIZE_ANY;
+                result = VM_FLAGS_SUPERPAGE_NONE;
             #endif
             break;
         case page_size_e::PAGE_2MB:
@@ -58,7 +58,7 @@ IUsermodeExecutor::allocate_page(
     off_t offset = 0;
 
     #ifdef __MACH__
-        fd = convert_page_size_into_flag(size_of_page);
+        // fd = convert_page_size_into_flag(size_of_page);
     #endif
 
     mmap_result = mmap(

@@ -31,6 +31,12 @@ static const char * register_table_x86_64[] ={
         "r15",
         "rflags",
         "rip",
+        "cs",
+        "ds",
+        "ss",
+        "es",
+        "fs",
+        "gs",
 };
 
 char 
@@ -52,16 +58,32 @@ convert_byte_to_char(
 
 void
 print_in_hex(
-    const array_t & array
+    const array_t & array,
+    const bool reversed = false
 ){
     std::cout << "0x";
-    for (int i = 0; i < array.size; i++){
-        std::cout << convert_byte_to_char(array.array[i], true) << convert_byte_to_char(array.array[i], false);
-        if (15 == i % 16){
-            std::cout << "\n0x";
+    if (reversed)
+    {
+        for (int i = array.size -1; i >= 0; i--){
+            std::cout << convert_byte_to_char(array.array[i], true) << convert_byte_to_char(array.array[i], false);
+            if (15 == i % 16){
+                std::cout << "\n0x";
+            }
+            else if (3 == i % 4){
+                std::cout << ' ';
+            }
         }
-        else if (3 == i % 4){
-            std::cout << ' ';
+    } 
+    else 
+    {
+        for (int i = 0; i < array.size; i++){
+            std::cout << convert_byte_to_char(array.array[i], true) << convert_byte_to_char(array.array[i], false);
+            if (15 == i % 16){
+                std::cout << "\n0x";
+            }
+            else if (3 == i % 4){
+                std::cout << ' ';
+            }
         }
     }
 
@@ -92,7 +114,7 @@ print_registers(
             register_as_array.array = reinterpret_cast<uint8_t *>(read_registers.array + register_index);
             register_as_array.size = sizeof(read_registers.array[register_index]);
 
-            print_in_hex(register_as_array);
+            print_in_hex(register_as_array, /* reversed= */ true);
         }
         registers_to_print.value >>= 1;
         register_index++;
@@ -131,13 +153,16 @@ int main(void){
     while (true){
         std::cout << "enter assembly:" << std::endl;
         std::getline(std::cin, input);
+        
 
         if (0 == input.size()){
             break;
         }
 
         assembly.str = reinterpret_cast<const uint8_t *>(input.c_str());
-        assembly.size = input.size() + 1;
+        // assembly.str = reinterpret_cast<const uint8_t *>("push rsp");
+        // assembly.size = strlen(reinterpret_cast<const char *>(assembly.str));
+        assembly.size = input.size();
 
         if (!assembler.assemble(assembly, opcodes))
         {
@@ -160,4 +185,9 @@ int main(void){
         }
         
     }
+}
+
+int use_sockets(void)
+{
+    return 0;
 }
