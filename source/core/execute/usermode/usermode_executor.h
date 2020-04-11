@@ -4,6 +4,7 @@
 #include <core/execute/executor.h>
 
 #include <exception>
+#include <string.h>
 
 namespace execute{
 

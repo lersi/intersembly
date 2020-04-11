@@ -5,6 +5,8 @@
 
 #ifdef __MACH__
     #include <mach/vm_statistics.h>
+#elif defined(__linux__)
+    #include <linux/mman.h>
 #endif
 
 #define NO_FD (-1)

@@ -47,8 +47,9 @@ target_link_libraries(intersembly PRIVATE
 add_library(
     keystone SHARED IMPORTED
 )
+find_library(KEYSTONE keystone)
 set_target_properties( keystone
-    PROPERTIES IMPORTED_LOCATION /usr/local/lib/libkeystone.dylib
+	PROPERTIES IMPORTED_LOCATION ${KEYSTONE}
 )
 
 link_directories(

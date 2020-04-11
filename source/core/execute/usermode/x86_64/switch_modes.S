@@ -17,7 +17,9 @@
 
 .text
 .global _operation_end_handler
+.global operation_end_handler
 _operation_end_handler:
+operation_end_handler:
 /* this code restores the executed code to our own code */
 /* assumng the following:
 	rax, rbx, rcx, rdx, rip are saved on the stack in that order
