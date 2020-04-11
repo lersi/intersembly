@@ -6,7 +6,6 @@
 #ifdef __MACH__
     #include <mach/vm_statistics.h>
 #elif defined(__linux__)
-    #include <linux/mman.h>
 #endif
 
 #define NO_FD (-1)
@@ -35,7 +34,7 @@ convert_page_size_into_flag(
             #ifdef __MACH__
                 result = VM_FLAGS_SUPERPAGE_SIZE_2MB;
             #elif defined(__linux__)
-                result = MAP_HUGETLB | MAP_HUGE_2MB;
+                result = MAP_HUGETLB;
             #elif defined(__FreeBSD__)
                 result = MAP_ALIGNED_SUPER;
             #endif
@@ -44,7 +43,7 @@ convert_page_size_into_flag(
             #ifdef __MACH__
                 result = VM_FLAGS_SUPERPAGE_SIZE_ANY;
             #elif defined(__linux__)
-                result = MAP_HUGETLB | MAP_HUGE_1GB;
+                result = MAP_HUGETLB;
             #elif defined(__FreeBSD__)
                 result = MAP_ALIGNED_SUPER;
             #endif
