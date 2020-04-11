@@ -67,19 +67,31 @@ IUsermodeExecutor::allocate_page(
     size_t size = get_size_of_page(size_of_page);
     int protection = PROT_READ | PROT_WRITE | PROT_EXEC;
     int flags = MAP_ANONYMOUS | MAP_PRIVATE;
+    int os_specific_flags = convert_page_size_into_flag(size_of_page);
     int fd = NO_FD;
     off_t offset = 0;
-
-    flags |= convert_page_size_into_flag(size_of_page);   
 
     mmap_result = mmap(
         page_base_address,
         size,
         protection,
-        flags,
+        flags | os_specific_flags,
         fd,
         offset
     );
+    #ifdef __linux__
+    /* if fails try agian without huge page flags */
+    if (MAP_FAILED == mmap_result) {
+        mmap_result = mmap(
+            page_base_address,
+            size,
+            protection,
+            flags,
+            fd,
+            offset
+        );
+    }
+    #endif
     if (MAP_FAILED == mmap_result) {
         /** @todo add specific exceptions for each error type */
         throw std::exception();
