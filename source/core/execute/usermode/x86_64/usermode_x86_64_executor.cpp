@@ -71,17 +71,14 @@ X86_64_Executor::init(void)
 	m_environment_registers.rsp = stack_base_address + m_environment_stack.size;
 
 	/* saves current value of rflags to register_struct */
-	// asm volatile (R"(
-	// 	pushf
-	// 	pop %%rax
-	// 	/* clear only the user bits */
-	// 	and 0xffffffffffff7302, %%rax
-	// 	mov %%rax, %0
-	// )"
-	// : "=m"(m_environment_registers.rflags)
-	// : /* no input */
-	// : "rax"
-	// );
+	asm volatile (R"(
+		pushfq
+		pop %0
+	)"
+	: "=r"(m_environment_registers.rflags)
+	: /* no input */
+	);
+	m_environment_registers.rflags &= 0xffffffffffff7302;
 }
 
 void

@@ -51,7 +51,7 @@ _operation_end_handler:
     push r13
     push r14
     push r15
-    pushf
+    pushfq
     /* save rip on this stack */
     push rdx
 
@@ -156,7 +156,7 @@ start_execute:
 	push r13
 	push r14
 	push r15
-	pushf
+	pushfq
 	/* push the address that we want to return to */
 	call after_execution /* a work around for absolute addressing */
 	/* push the pointer to the register struct */
@@ -191,7 +191,7 @@ start_execute:
 	/* load the rflags register */
 	mov rbx, [rax + 8 * 16]
 	push rbx
-	popf
+	popfq
 
 	/* load the value of rip to stack */
 	mov rbx, [rax + 8 * 17]
@@ -209,7 +209,7 @@ start_execute:
 after_execution:
 	pop rdx
 	call rdx
-	popf
+	popfq
 	pop r15
 	pop r14
 	pop r13
