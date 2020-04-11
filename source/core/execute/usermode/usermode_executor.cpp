@@ -23,16 +23,28 @@ convert_page_size_into_flag(
         case page_size_e::PAGE_4KB:
             #ifdef __MACH__
                 result = VM_FLAGS_SUPERPAGE_NONE;
+            #elif defined(__linux__)
+                /* there are no flags to add */
+            #elif defined(__FreeBSD__)
+                /* there are no flags to add */
             #endif
             break;
         case page_size_e::PAGE_2MB:
             #ifdef __MACH__
                 result = VM_FLAGS_SUPERPAGE_SIZE_2MB;
+            #elif defined(__linux__)
+                result = MAP_HUGETLB | MAP_HUGE_2MB;
+            #elif defined(__FreeBSD__)
+                result = MAP_ALIGNED_SUPER;
             #endif
             break;
         case page_size_e::PAGE_1GB:
             #ifdef __MACH__
                 result = VM_FLAGS_SUPERPAGE_SIZE_ANY;
+            #elif defined(__linux__)
+                result = MAP_HUGETLB | MAP_HUGE_1GB;
+            #elif defined(__FreeBSD__)
+                result = MAP_ALIGNED_SUPER;
             #endif
             break;
         default:
@@ -57,9 +69,7 @@ IUsermodeExecutor::allocate_page(
     int fd = NO_FD;
     off_t offset = 0;
 
-    #ifdef __MACH__
-        // fd = convert_page_size_into_flag(size_of_page);
-    #endif
+    flags |= convert_page_size_into_flag(size_of_page);   
 
     mmap_result = mmap(
         page_base_address,

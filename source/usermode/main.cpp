@@ -13,30 +13,30 @@ using namespace assemble;
 using namespace execute;
 
 static const char * register_table_x86_64[] ={
-        "rax",
-        "rbx",
-        "rcx",
-        "rdx",
-        "rsi",
-        "rdi",
-        "rbp",
-        "rsp",
-        "r8",
-        "r9",
-        "r10",
-        "r11",
-        "r12",
-        "r13",
-        "r14",
-        "r15",
+        "rax   ",
+        "rbx   ",
+        "rcx   ",
+        "rdx   ",
+        "rsi   ",
+        "rdi   ",
+        "rbp   ",
+        "rsp   ",
+        "r8    ",
+        "r9    ",
+        "r10   ",
+        "r11   ",
+        "r12   ",
+        "r13   ",
+        "r14   ",
+        "r15   ",
         "rflags",
-        "rip",
-        "cs",
-        "ds",
-        "ss",
-        "es",
-        "fs",
-        "gs",
+        "rip   ",
+        "cs    ",
+        "ds    ",
+        "ss    ",
+        "es    ",
+        "fs    ",
+        "gs    ",
 };
 
 char 
@@ -64,12 +64,13 @@ print_in_hex(
     std::cout << "0x";
     if (reversed)
     {
-        for (int i = array.size -1; i >= 0; i--){
+        int index = 0;
+        for (int i = array.size -1; i >= 0; i--, index++){
             std::cout << convert_byte_to_char(array.array[i], true) << convert_byte_to_char(array.array[i], false);
-            if (15 == i % 16){
+            if(16 == index % 16){
                 std::cout << "\n0x";
             }
-            else if (3 == i % 4){
+             else if (index % 2){
                 std::cout << ' ';
             }
         }
@@ -81,7 +82,7 @@ print_in_hex(
             if (15 == i % 16){
                 std::cout << "\n0x";
             }
-            else if (3 == i % 4){
+            else if (i % 2){
                 std::cout << ' ';
             }
         }
@@ -177,8 +178,14 @@ int main(void){
             if(!executor.prepare_execute(opcodes)){
                 std::cerr << "failed to prepare execution!" << std::endl;
             }
-            if(!executor.execute(changed_registers)){
-                std::cerr << "failed to execute!" << std::endl;
+            else
+            {
+                if(!assembler.free(opcodes.array)){
+                    std::cerr << "failed to free opcodes!" << std::endl;
+                }
+                if(!executor.execute(changed_registers)){
+                    std::cerr << "failed to execute!" << std::endl;
+                }
             }
 
             print_registers(executor, changed_registers);
