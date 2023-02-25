@@ -14,6 +14,7 @@ set(CMAKE_C_FLAGS ${CMAKE_CXX_FLAGS})
 set(CMAKE_ASM_FLAGS "-g")
 # set(CMAKE_ASM_COMPILER "as")
 
+include(cmake_files/include_keystone.cmake)
 
 # project's include directories
 include_directories(AFTER
@@ -44,14 +45,14 @@ target_link_libraries(intersembly PRIVATE
 )
 
 
-add_library(
-    keystone SHARED IMPORTED
-)
-find_library(KEYSTONE keystone)
-set_target_properties( keystone
-	PROPERTIES IMPORTED_LOCATION ${KEYSTONE}
-)
+# add_library(
+#     keystone STATIC IMPORTED
+# )
+# find_library(KEYSTONE keystone)
+# set_target_properties( keystone
+# 	PROPERTIES IMPORTED_LOCATION ${KEYSTONE}
+# )
 
-link_directories(
-    /usr/local/lib
-)
+# link_directories(
+#     /usr/local/lib
+# )
