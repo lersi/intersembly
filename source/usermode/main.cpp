@@ -123,8 +123,6 @@ print_registers(
 }
 
 int main(void){
-    assembly_syntax_e syntax = assembly_syntax_e::INTEL;
-    architecture_e arch = architecture_e::X86;
     KeystoneAssembler assembler;
     X86_64_Executor executor;
     string_t assembly{.str= nullptr, .size= 0};
@@ -133,9 +131,9 @@ int main(void){
     std::string input;
 
     if(!assembler.init(
-        arch, 
-        keystone_mode::MODE_64 | keystone_mode::MODE_LITTLE_ENDIAN, 
-        syntax)
+        architecture_e::X86, 
+        keystone_mode::MODE_64, 
+        assembly_syntax_e::INTEL)
     ){
         std::cerr << "assembler init error!";
         return 1;

@@ -19,10 +19,10 @@ FetchContent_Populate(keystone
 )
 set(CMAKE_INSTALL_PREFIX=/usr)
 
-set(CMAKE_BUILD_TYPE=Release)
-set(BUILD_SHARED_LIBS=OFF)
-set(LLVM_TARGETS_TO_BUILD="AArch64, X86")
-set(BUILD_LIBS_ONLY=TRUE)
+set(CMAKE_BUILD_TYPE Release)
+set(BUILD_SHARED_LIBS OFF)
+set(LLVM_TARGETS_TO_BUILD "AArch64" "X86")
+set(BUILD_LIBS_ONLY TRUE)
 add_subdirectory(${keystone_SOURCE_DIR} ${keystone_BINARY_DIR})
 
 

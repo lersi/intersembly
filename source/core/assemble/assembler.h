@@ -18,8 +18,11 @@ namespace assemble
     } architecture_e;
     
     typedef enum {
-        INTEL = 1,
-        ATNT
+        NONE = 0,
+        INTEL,
+        ATNT,
+        GNU,
+        NASM
     } assembly_syntax_e;
 
 

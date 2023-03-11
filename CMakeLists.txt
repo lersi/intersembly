@@ -44,6 +44,11 @@ target_link_libraries(intersembly PRIVATE
     keystone
 )
 
+add_executable(test source/usermode/test.cpp)
+target_link_libraries(test PRIVATE
+    assemble
+    keystone
+)
 
 # add_library(
 #     keystone STATIC IMPORTED

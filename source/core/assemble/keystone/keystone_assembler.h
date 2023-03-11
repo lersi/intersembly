@@ -62,7 +62,7 @@ namespace assemble
         init(
             IN const architecture_e architecture,
             IN const int architecture_mode,
-            IN const assembly_syntax_e syntax
+            IN const assembly_syntax_e syntax = assembly_syntax_e::NONE
         );
 
         /**
