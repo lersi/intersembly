@@ -5,7 +5,11 @@
 
 #include <core/assemble/assembler.h>
 #include <core/assemble/keystone/keystone_assembler.h>
+#ifdef __X64__
 #include <core/execute/usermode/x86_64/usermode_x86_64_executor.h>
+#elif defined __ARM64__
+#include <core/execute/usermode/armv8/usermode_arm64_executor.h>
+#endif
 
 
 
@@ -37,6 +41,42 @@ static const char * register_table_x86_64[] ={
         "es    ",
         "fs    ",
         "gs    ",
+};
+static const char * register_table_arm64[] = {
+    "X0   ",
+    "X1   ",
+    "X2   ",
+    "X3   ",
+    "X4   ",
+    "X5   ",
+    "X6   ",
+    "X7   ",
+    "X8   ",
+    "X9   ",
+    "X10  ",
+    "X11  ",
+    "X12  ",
+    "X13  ",
+    "X14  ",
+    "X15  ",
+    "X16  ",
+    "X17  ",
+    "X18  ",
+    "X19  ",
+    "X20  ",
+    "X21  ",
+    "X22  ",
+    "X23  ",
+    "X24  ",
+    "X25  ",
+    "X26  ",
+    "X27  ",
+    "X28  ",
+    "X29  ",
+    "LR   ",
+    "flags",
+    "SP   ",
+    "PC   ",
 };
 
 char 
@@ -96,6 +136,11 @@ print_registers(
     const IExecutor & executor,
     common_registers_bit_mask_t registers_to_print
 ){
+#ifdef __X64__
+    const char ** register_table = register_table_x86_64;
+#elif defined __ARM64__
+    const char ** register_table = register_table_arm64;
+#endif
     common_registers_t read_registers = { .array = {0} };
     array_t register_as_array = {0};
     uint64_t register_index = 0;
@@ -110,7 +155,7 @@ print_registers(
     {
         if (1 & registers_to_print.value)
         {
-            std::cout << register_table_x86_64[register_index] << " ";
+            std::cout << register_table[register_index] << " ";
 
             register_as_array.array = reinterpret_cast<uint8_t *>(read_registers.array + register_index);
             register_as_array.size = sizeof(read_registers.array[register_index]);
@@ -123,24 +168,33 @@ print_registers(
 }
 
 int main(void){
-    assembly_syntax_e syntax = assembly_syntax_e::INTEL;
-    architecture_e arch = architecture_e::X86;
     KeystoneAssembler assembler;
-    X86_64_Executor executor;
     string_t assembly{.str= nullptr, .size= 0};
     array_t opcodes{.array= nullptr, .size= 0};
     common_registers_bit_mask_t changed_registers = {0};
     std::string input;
-
+#ifdef __X64__
+    X86_64_Executor executor;
     if(!assembler.init(
-        arch, 
-        keystone_mode::MODE_64 | keystone_mode::MODE_LITTLE_ENDIAN, 
-        syntax)
+        architecture_e::X86, 
+        keystone_mode::MODE_64, 
+        assembly_syntax_e::INTEL)
     ){
         std::cerr << "assembler init error!";
         return 1;
     }
-
+#elif defined __ARM64__
+    ARM64_Executor executor;
+    if(!assembler.init(
+        architecture_e::ARM64, 
+        keystone_mode::MODE_LITTLE_ENDIAN, 
+        assembly_syntax_e::NONE)
+    ){
+        std::cerr << "assembler init error!";
+        return 1;
+    }
+#endif
+        
     try{
         executor.init();
     }
@@ -161,8 +215,6 @@ int main(void){
         }
 
         assembly.str = reinterpret_cast<const uint8_t *>(input.c_str());
-        // assembly.str = reinterpret_cast<const uint8_t *>("push rsp");
-        // assembly.size = strlen(reinterpret_cast<const char *>(assembly.str));
         assembly.size = input.size();
 
         if (!assembler.assemble(assembly, opcodes))

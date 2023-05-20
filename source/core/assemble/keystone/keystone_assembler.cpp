@@ -94,6 +94,13 @@ convert_syntax_to_keystone(
 		case assembly_syntax_e::ATNT:
 			keystone_syntax = KS_OPT_SYNTAX_ATT;
 			break;
+		case assembly_syntax_e::NASM:
+			keystone_syntax = KS_OPT_SYNTAX_NASM;
+			break;
+		case assembly_syntax_e::GNU:
+			keystone_syntax = KS_OPT_SYNTAX_GAS;
+			break;
+		case assembly_syntax_e::NONE:
 		default:
 			/* @todo: fill error code */
 			goto cleanup;
@@ -156,9 +163,10 @@ KeystoneAssembler::init(
 		/* @todo: fill error */
 		goto cleanup;
 	}
-
-	if(!set_syntax(syntax)) {
-		goto cleanup;
+	if(syntax != assembly_syntax_e::NONE){
+		if(!set_syntax(syntax)) {
+			goto cleanup;
+		}
 	}
 
 	result = true;

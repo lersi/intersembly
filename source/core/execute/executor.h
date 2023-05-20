@@ -12,6 +12,7 @@ namespace execute{
     typedef union {
         uint64_t value;
         /* x86_64 registers */
+#ifdef __X64__
         struct {
             bool rax : 1;
             bool rbx : 1;
@@ -32,13 +33,55 @@ namespace execute{
             bool rflags : 1;
             bool rip : 1;
         };
+#elif defined __ARM64__
+        struct {
+            bool x0 : 1;
+            bool x1 : 1;
+            bool x2 : 1;
+            bool x3 : 1;
+            bool x4 : 1;
+            bool x5 : 1;
+            bool x6 : 1;
+            bool x7 : 1;
+            bool x8 : 1;
+            bool x9 : 1;
+            bool x10 : 1;
+            bool x11 : 1;
+            bool x12 : 1;
+            bool x13 : 1;
+            bool x14 : 1;
+            bool x15 : 1;
+            bool x16 : 1;
+            bool x17 : 1;
+            bool x18 : 1;
+            bool x19 : 1;
+            bool x20 : 1;
+            bool x21 : 1;
+            bool x22 : 1;
+            bool x23 : 1;
+            bool x24 : 1;
+            bool x25 : 1;
+            bool x26 : 1;
+            bool x27 : 1;
+            bool x28 : 1;
+            bool x29 : 1;
+            bool LR : 1;
+            bool flags : 1;
+            bool SP : 1;
+            bool PC : 1;
+        };
+#endif
     } common_registers_bit_mask_t;
 
+#ifdef __X64__
     constexpr uint64_t COMMON_REGISTERS_LENGTH = 23;
-
+#elif defined __ARM64__
+    constexpr uint64_t COMMON_REGISTERS_LENGTH = 34;
+#endif
     typedef union common_registers
     {
         uint64_t array[COMMON_REGISTERS_LENGTH];
+#ifdef __X64__
         struct
         {
             /* General-Purpose Registers */
@@ -105,7 +148,45 @@ namespace execute{
             uint32_t fs; uint32_t fs_pad;
             uint32_t gs; uint32_t gs_pad;*/
         };
-        
+#elif defined __ARM64__
+        struct
+        {
+            uint64_t x0;
+            uint64_t x1;
+            uint64_t x2;
+            uint64_t x3;
+            uint64_t x4;
+            uint64_t x5;
+            uint64_t x6;
+            uint64_t x7;
+            uint64_t x8;
+            uint64_t x9;
+            uint64_t x10;
+            uint64_t x11;
+            uint64_t x12;
+            uint64_t x13;
+            uint64_t x14;
+            uint64_t x15;
+            uint64_t x16;
+            uint64_t x17;
+            uint64_t x18;
+            uint64_t x19;
+            uint64_t x20;
+            uint64_t x21;
+            uint64_t x22;
+            uint64_t x23;
+            uint64_t x24;
+            uint64_t x25;
+            uint64_t x26;
+            uint64_t x27;
+            uint64_t x28;
+            uint64_t x29;
+            uint64_t x30;
+            uint64_t flags;
+            uint64_t SP;
+            uint64_t PC;
+        };
+#endif
     } common_registers_t;
     
     
